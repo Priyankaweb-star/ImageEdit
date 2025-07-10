@@ -636,19 +636,49 @@ class App():
         self.resize_window.mainloop()
                 
     def crop_menu(self):
-        self.topleft_point = pickpoint.Window(self.root, self.show_image, self.modify_percent, "top left")
-        self.topleft_point = self.topleft_point.selected_point
-        if self.topleft_point == None:
-            return None
-            
-        self.bottomright_point = pickpoint.Window(self.root, self.show_image, self.modify_percent, "bottom right")
-        self.bottomright_point = self.bottomright_point.selected_point
-        if self.bottomright_point == None:
-            return None
+        crop_window = tk.Toplevel(self.root)
+        crop_window.title("Crop Image")
+
+        img_copy = self.current_image.copy()
+        img_tk = ImageTk.PhotoImage(img_copy)
         
-        self.current_image = self.current_image.crop((self.topleft_point[0], self.topleft_point[1], self.bottomright_point[0], self.bottomright_point[1]))
-        self.resize_image()
-        self.render_image()
+        canvas = tk.Canvas(crop_window, width=img_copy.width, height=img_copy.height)
+        canvas.pack()
+
+        canvas_img = canvas.create_image(0, 0, anchor='nw', image=img_tk)
+
+        rect = None
+        start_x = start_y = end_x = end_y = 0
+
+        def on_button_press(event):
+            nonlocal start_x, start_y, rect
+            start_x, start_y = event.x, event.y
+            if rect:
+                canvas.delete(rect)
+            rect = canvas.create_rectangle(start_x, start_y, start_x, start_y, outline="red")
+
+        def on_mouse_drag(event):
+            nonlocal rect
+            canvas.coords(rect, start_x, start_y, event.x, event.y)
+
+        def on_crop():
+            nonlocal start_x, start_y, end_x, end_y
+            x1, y1, x2, y2 = canvas.coords(rect)
+            x1, y1, x2, y2 = map(int, [x1, y1, x2, y2])
+            if x1 != x2 and y1 != y2:
+                cropped = img_copy.crop((min(x1,x2), min(y1,y2), max(x1,x2), max(y1,y2)))
+                self.current_image = cropped
+                self.resize_image()
+                self.render_image()
+                crop_window.destroy()
+
+        crop_btn = tk.Button(crop_window, text="Crop", command=on_crop)
+        crop_btn.pack(pady=5)
+
+        canvas.bind("<ButtonPress-1>", on_button_press)
+        canvas.bind("<B1-Motion>", on_mouse_drag)
+
+        crop_window.mainloop()
         
     def tile_window_quit(self):
         self.tile_window.destroy()
